@@ -43,14 +43,14 @@ def pickAttribute(datas, index, attribute):
     return pickData            
 
 
-def information_gain(datas, lengthAttribute):
+def information_gain(datas, index):
     dataSize = len(datas)
     attributeCount = {}
     weightedEntropy = 0.0
     splitInfo = 0.0
 
     for data in datas: 
-        currentAttribute = data[lengthAttribute]
+        currentAttribute = data[index]
         if currentAttribute not in attributeCount.keys():
             attributeCount[currentAttribute] = 0
         attributeCount[currentAttribute] += 1
@@ -58,7 +58,7 @@ def information_gain(datas, lengthAttribute):
     for attribute in attributeCount:
         print('attri: ', attribute)
         probability = float(attributeCount[attribute]/dataSize)
-        partOfData = pickAttribute(datas,lengthAttribute, attribute)
+        partOfData = pickAttribute(datas,index, attribute)
 ##        if len(attributeCount) > 2:
 ##            weightedEntropy -= probability * log(probability, 2)
 ##            print('weight: ', weightedEntropy)
@@ -72,9 +72,18 @@ def information_gain(datas, lengthAttribute):
             splitInfo -= probability * log(probability, 2)
 
     gainRatio = gain / splitInfo
-    print('gainRatio: ', gainRatio)
-    return gain
+#    print('gainRatio: ', gainRatio)
 
+    return gainRatio
+
+
+def selectBestAttribute(bestGain, gainRatio, index, bestIndex):
+    if bestGain < gainRatio:
+        print('min')
+        bestGain = gainRatio
+        bestIndex = index
+    
+    return bestGain, bestIndex
 
 
 
@@ -82,6 +91,12 @@ def information_gain(datas, lengthAttribute):
 # main
 datas, attributes = readData("dt_train.txt")
 #print(entropy(datas))
+bestGain = 0.0
+bestIndex = 0
 for i in range (len(attributes) -1):
-    information_gain(datas, i)
+    gainRatio = information_gain(datas, i)
+    bestGain, bestIndex = selectBestAttribute(bestGain, gainRatio, i, bestIndex)
+
+# Decided root node by comparing the gainRatio so far
+
 
