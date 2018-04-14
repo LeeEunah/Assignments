@@ -1,6 +1,52 @@
 from math import log
 
 
+def tree(datas, attributes):
+    bestGain = 0.0
+    bestIndex = 0
+
+    print('attri: ', attributes)
+    print('datas: ', datas)
+# check best gain ratio among the attributes
+#    for i in range (len(attributes)-1):
+#        gainRatio = information_gain(datas, i)
+#        bestGain, bestIndex = selectBestAttribute(bestGain, gainRatio, i, bestIndex)
+
+    # Stop tree
+    # when all of the values of label are equal
+    if 
+        
+    bestGain, bestIndex = selectBestAttribute(datas, attributes)
+#    print('bestIndex: ', bestIndex)
+    
+    bestAttribute = attributes[bestIndex]
+    print('bestAttribute: ', bestAttribute)
+    Tree = {bestAttribute : {}}
+# gathering the label of attribute without duplicating
+
+    kindOfValue = set([label[bestIndex] for label in datas])
+    print('kind :', kindOfValue)
+    
+    del (attributes[bestIndex])
+    for data in datas:
+        del data[bestIndex]
+
+#    print('subAttribute: ', attributes)
+#    print('subData: ', datas)
+
+
+# recursive
+    for value in kindOfValue:
+        subAttribute = attributes[:]
+        subData = datas[:]
+        Tree[bestAttribute][value] = tree(subData, subAttribute)
+        print('Tree: ', Tree)
+
+        
+
+    
+
+
 def readData(fileName):
     datas = []
     inputfile = open("./"+fileName, 'r')
@@ -32,7 +78,7 @@ def entropy(datas):
         entropy -= probability * log(probability, 2)
     return entropy
 
-
+# the number of label in data
 def pickAttribute(datas, index, attribute):
 #    print(attribute)
     pickData = []
@@ -51,12 +97,13 @@ def information_gain(datas, index):
 
     for data in datas: 
         currentAttribute = data[index]
+        #print('data:' ,data)
         if currentAttribute not in attributeCount.keys():
             attributeCount[currentAttribute] = 0
         attributeCount[currentAttribute] += 1
 
     for attribute in attributeCount:
-        print('attri: ', attribute)
+#        print('attri: ', attribute)
         probability = float(attributeCount[attribute]/dataSize)
         partOfData = pickAttribute(datas,index, attribute)
 ##        if len(attributeCount) > 2:
@@ -77,11 +124,16 @@ def information_gain(datas, index):
     return gainRatio
 
 
-def selectBestAttribute(bestGain, gainRatio, index, bestIndex):
-    if bestGain < gainRatio:
-        print('min')
-        bestGain = gainRatio
-        bestIndex = index
+def selectBestAttribute(datas, attributes):
+    bestGain = 0.0
+    for i in range (len(attributes)-1):
+#        print('i: ', i)
+        gainRatio = information_gain(datas, i)
+
+        if bestGain < gainRatio:
+            bestGain = gainRatio
+            bestIndex = i
+
     
     return bestGain, bestIndex
 
@@ -91,12 +143,18 @@ def selectBestAttribute(bestGain, gainRatio, index, bestIndex):
 # main
 datas, attributes = readData("dt_train.txt")
 #print(entropy(datas))
-bestGain = 0.0
-bestIndex = 0
-for i in range (len(attributes) -1):
-    gainRatio = information_gain(datas, i)
-    bestGain, bestIndex = selectBestAttribute(bestGain, gainRatio, i, bestIndex)
 
+
+
+
+#print('data: ', datas)
+#print('attributes: ', attributes)
+# print('bestGain: ', bestGain)
+#print('bestIndex: ', bestIndex)
+
+#rmLastAttributes = attributes[:-1]
+#rmLastDatas = [data[:-1] for data in datas]
+tree(datas, attributes)
 # Decided root node by comparing the gainRatio so far
 
 
