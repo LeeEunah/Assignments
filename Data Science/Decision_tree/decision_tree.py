@@ -5,42 +5,55 @@ def tree(datas, attributes):
     bestGain = 0.0
     bestIndex = 0
 
-    print('attri: ', attributes)
-    print('datas: ', datas)
 # check best gain ratio among the attributes
-#    for i in range (len(attributes)-1):
-#        gainRatio = information_gain(datas, i)
-#        bestGain, bestIndex = selectBestAttribute(bestGain, gainRatio, i, bestIndex)
-
     # Stop tree
     # when all of the values of label are equal
-    if 
+    if len(attributes) <= 1:
+        return
+
+    else:
+        bestGain, bestIndex = selectBestAttribute(datas, attributes)
+    
+        bestAttribute = attributes[bestIndex]
+        Tree = {bestAttribute : {}}
         
-    bestGain, bestIndex = selectBestAttribute(datas, attributes)
-#    print('bestIndex: ', bestIndex)
-    
-    bestAttribute = attributes[bestIndex]
-    print('bestAttribute: ', bestAttribute)
-    Tree = {bestAttribute : {}}
 # gathering the label of attribute without duplicating
+        kindOfValue = set([label[bestIndex] for label in datas])
+        listKind = list(kindOfValue)
+        stopTree = {}
+        answers = []
+        for value in kindOfValue:
+            answer = []
+            for data in datas:
+                if data[bestIndex] == value:
+                    answer.append(data[-1])
+            answers.append(answer)
 
-    kindOfValue = set([label[bestIndex] for label in datas])
-    print('kind :', kindOfValue)
-    
-    del (attributes[bestIndex])
-    for data in datas:
-        del data[bestIndex]
-
-#    print('subAttribute: ', attributes)
-#    print('subData: ', datas)
+        i = 0
+        for answer in answers:
+            if len(set(answer)) == 1:
+                strAnswer = list(set(answer))
+                
+                stopTree[listKind[i]] = strAnswer[0]
+            i = i + 1
+            
+        
+        del (attributes[bestIndex])
 
 
 # recursive
-    for value in kindOfValue:
-        subAttribute = attributes[:]
-        subData = datas[:]
-        Tree[bestAttribute][value] = tree(subData, subAttribute)
-        print('Tree: ', Tree)
+        for value in listKind:
+            if value in stopTree.keys():       
+                Tree[bestAttribute][value] = stopTree[value]
+                continue
+            subAttribute = attributes[:]
+            subData = datas[:]
+
+            subData = pickAttribute2(datas, bestIndex, value)
+
+            Tree[bestAttribute][value] = tree(subData, subAttribute)
+
+        return Tree
 
         
 
@@ -80,14 +93,19 @@ def entropy(datas):
 
 # the number of label in data
 def pickAttribute(datas, index, attribute):
-#    print(attribute)
     pickData = []
     for data in datas:
         if data[index] == attribute:
             pickData.append(data[:])
-#    print(len(pickData))
     return pickData            
 
+def pickAttribute2(datas, index, attribute):
+    pickData = []
+    for data in datas:
+        if data[index] == attribute:
+            del data[index]
+            pickData.append(data[:])
+    return pickData 
 
 def information_gain(datas, index):
     dataSize = len(datas)
@@ -97,20 +115,13 @@ def information_gain(datas, index):
 
     for data in datas: 
         currentAttribute = data[index]
-        #print('data:' ,data)
         if currentAttribute not in attributeCount.keys():
             attributeCount[currentAttribute] = 0
         attributeCount[currentAttribute] += 1
 
     for attribute in attributeCount:
-#        print('attri: ', attribute)
         probability = float(attributeCount[attribute]/dataSize)
         partOfData = pickAttribute(datas,index, attribute)
-##        if len(attributeCount) > 2:
-##            weightedEntropy -= probability * log(probability, 2)
-##            print('weight: ', weightedEntropy)
-##
-##        else:
         weightedEntropy += probability * entropy(partOfData)
 
         gain = entropy(datas) - weightedEntropy
@@ -118,16 +129,14 @@ def information_gain(datas, index):
         if len(attributeCount) > 1:
             splitInfo -= probability * log(probability, 2)
 
-    gainRatio = gain / splitInfo
-#    print('gainRatio: ', gainRatio)
+            gain = gain / splitInfo
 
-    return gainRatio
+    return gain
 
 
 def selectBestAttribute(datas, attributes):
     bestGain = 0.0
     for i in range (len(attributes)-1):
-#        print('i: ', i)
         gainRatio = information_gain(datas, i)
 
         if bestGain < gainRatio:
@@ -142,19 +151,9 @@ def selectBestAttribute(datas, attributes):
 
 # main
 datas, attributes = readData("dt_train.txt")
-#print(entropy(datas))
 
-
-
-
-#print('data: ', datas)
-#print('attributes: ', attributes)
-# print('bestGain: ', bestGain)
-#print('bestIndex: ', bestIndex)
-
-#rmLastAttributes = attributes[:-1]
-#rmLastDatas = [data[:-1] for data in datas]
-tree(datas, attributes)
+Tree = tree(datas, attributes)
+print('Tree: ', Tree)
 # Decided root node by comparing the gainRatio so far
 
 
