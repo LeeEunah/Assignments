@@ -1,7 +1,8 @@
-import sys
-from math import log
+import sys   # import for command line
+from math import log 
 
 class Node:
+    # create a node creator
     def __init__(self, index=-1, value=None, leaf=None, left=None, right=None):
         self.index = index 
         self.value = value
@@ -17,19 +18,21 @@ def createTree(datas, attributes):
     
     for i in range (len(rmAttribute)):
         attributeCount = {}
-        
+
+        # find out which value exits
         for data in datas:
             attributeCount[data[i]] = 1
 
         for value in attributeCount:
+            # pick datas that corresponds with value
             left, right = pickAttribute(datas, i, value)
 
+            # calculate gain
             probability = float(len(left)/len(datas))
-
             weightedEntropy = probability * entropy(left) + (1-probability) * entropy(right)
             gain = entropy(datas) - weightedEntropy
 
-            
+            # compare the gains for the best gain value
             if bestGain < gain:
                 bestGain = gain
                 bestIndex = i
@@ -42,6 +45,7 @@ def createTree(datas, attributes):
         rightNode = createTree(bestRight, attributes)
         return Node(bestIndex, bestValue, None, leftNode, rightNode)
 
+    # leaf node
     else:
         classLabel = {}
         for data in datas:
@@ -60,11 +64,13 @@ def entropy(datas):
     entropy = 0.0
 
     for data in datas:
+        # only check class label
         currentLabel = data[-1]
         if currentLabel not in classLabel.keys():
             classLabel[currentLabel] = 0
         classLabel[currentLabel] += 1
 
+    # calculate entropy
     for label in classLabel:
         probability = float(classLabel[label]/dataSize)
         entropy -= probability * log(probability, 2)
@@ -76,14 +82,17 @@ def pickAttribute(datas, index, value):
     notPickData = []
 
     for data in datas:
+        # pick datas that corresponds with value
         if data[index] == value:
             pickData.append(data[:])
+        # the rest of datas
         else:
             notPickData.append(data[:])
     return pickData, notPickData
 
 
 def recursiveTest(data, tree):
+    # recur until reaching leaf node
     if tree.leaf == None:
         temp = data[tree.index]
         node = None
@@ -93,10 +102,12 @@ def recursiveTest(data, tree):
             node = tree.right
         return recursiveTest(data, node)
     else:
+        # when reaches leaf node
         return tree.leaf
 
 
 def testTree(testData, tree):
+    # store class label value in list
     classLabel = []
     for data in testData:
         tested = recursiveTest(data, tree)
@@ -138,7 +149,6 @@ def writeData(fileName, attributes, testDatas, classLabel):
                 word += '\n'
 
     file.write(word)
-    
     file.close()
 
 
@@ -146,7 +156,9 @@ def writeData(fileName, attributes, testDatas, classLabel):
 
 
 
-# main
+## main
+
+# command line exception
 if len(sys.argv) != 4:
     print('''Please fill in the command form.
 Executable_file minimum_support inputfile outputfile''')
