@@ -2,14 +2,49 @@ import sys   # import for command line
 from math import log 
 
 class Node:
-    # create a node creator
-    def __init__(self, index=-1, value=None, leaf=None, left=None, right=None):
+    # create a node constructor
+    def __init__(self, index=None, value=None, leaf=None, left=None, right=None):
         self.index = index 
         self.value = value
         self.leaf = leaf
         self.left = left
         self.right = right
 
+def readData(fileName):
+    datas = []
+    inputfile = open("./"+fileName, 'r')
+    firstLine = inputfile.readline()
+    attributes = firstLine[:-1].split('\t')
+    
+    lines = inputfile.readlines()
+    for line in lines:
+        divide = line[:-1].split('\t')
+        datas.append(divide)
+
+    inputfile.close()
+    return datas, attributes
+
+
+def writeData(fileName, attributes, testDatas, classLabel):
+    word = ""
+    file = open("./" + fileName, "w")
+    for i in range (len(attributes)):
+        word += attributes[i]
+        word += '\t'
+        if i == len(attributes) -1:
+            word +='\n'
+
+    for j in range (len(testDatas)):
+        for i in range (len(testDatas[j])):
+            word += testDatas[j][i]
+            word += '\t'
+            if i == len(testDatas[j]) -1:
+                word += classLabel[j]
+                word += '\n'
+
+    file.write(word)
+    file.close()
+    
 
 def createTree(datas, attributes):
     weightedEntropy = 0.0
@@ -21,19 +56,23 @@ def createTree(datas, attributes):
 
         # find out which value exits
         for data in datas:
-            attributeCount[data[i]] = 1
+            if data[i] not in attributeCount.keys():
+                attributeCount[data[i]] = 1
 
         for value in attributeCount:
-            # pick datas that corresponds with value
+            # pick datas that corresponds with value(left)
+            # the rest of datas(right)
+            #    :it functions majority voting when the data set occurs exception. 
             left, right = pickAttribute(datas, i, value)
 
             # calculate gain
             probability = float(len(left)/len(datas))
             weightedEntropy = probability * entropy(left) + (1-probability) * entropy(right)
+            # gain of the value
             gain = entropy(datas) - weightedEntropy
 
             # compare the gains for the best gain value
-            if bestGain < gain:
+            if bestGain <= gain:
                 bestGain = gain
                 bestIndex = i
                 bestValue = value
@@ -45,7 +84,7 @@ def createTree(datas, attributes):
         rightNode = createTree(bestRight, attributes)
         return Node(bestIndex, bestValue, None, leftNode, rightNode)
 
-    # leaf node
+    # leaf node (bestGain = 0: when all of class labels are homogeneous)
     else:
         classLabel = {}
         for data in datas:
@@ -53,7 +92,6 @@ def createTree(datas, attributes):
             if currentLabel not in classLabel.keys():
                 classLabel[currentLabel] = 0
             classLabel[currentLabel] += 1
-
         return Node(None, None, classLabel, None, None)
             
 
@@ -94,9 +132,8 @@ def pickAttribute(datas, index, value):
 def recursiveTest(data, tree):
     # recur until reaching leaf node
     if tree.leaf == None:
-        temp = data[tree.index]
         node = None
-        if temp == tree.value:
+        if data[tree.index] == tree.value:
             node = tree.left
         else:
             node = tree.right
@@ -110,49 +147,11 @@ def testTree(testData, tree):
     # store class label value in list
     classLabel = []
     for data in testData:
+        # tested variable is returned class label
         tested = recursiveTest(data, tree)
         listTest = list(tested)
         classLabel.append(listTest[0])
     return classLabel
-
-
-def readData(fileName):
-    datas = []
-    inputfile = open("./"+fileName, 'r')
-    firstLine = inputfile.readline()
-    attributes = firstLine[:-1].split('\t')
-    
-    lines = inputfile.readlines()
-    for line in lines:
-        divide = line[:-1].split('\t')
-        datas.append(divide)
-
-    inputfile.close()
-    return datas, attributes
-
-
-def writeData(fileName, attributes, testDatas, classLabel):
-    word = ""
-    file = open("./" + fileName, "w")
-    for i in range (len(attributes)):
-        word += attributes[i]
-        word += '\t'
-        if i == len(attributes) -1:
-            word +='\n'
-
-    for j in range (len(testDatas)):
-        for i in range (len(testDatas[j])):
-            word += testDatas[j][i]
-            word += '\t'
-            if i == len(testDatas[j]) -1:
-                word += classLabel[j]
-                word += '\n'
-
-    file.write(word)
-    file.close()
-
-
-
 
 
 
