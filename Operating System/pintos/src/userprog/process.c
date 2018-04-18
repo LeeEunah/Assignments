@@ -21,6 +21,11 @@
 // malloc 사용을 위해
 #include "threads/malloc.h"
 
+#define MAX_FILE 128
+
+//lock 구조체 선언
+struct lock file_lock;
+
 static thread_func start_process NO_RETURN;
 static bool load (const char *cmdline, void (**eip) (void), void **esp);
 
@@ -71,6 +76,43 @@ process_execute (const char *file_name)
   return tid;
 }
 
+//파일을 디스크립터에 추가 해주는 함수
+int process_add_file(struct file *f){
+	int ret;
+	struct thread *t = thread_current();
+
+//파일이 없을 때 에러
+	if(f == NULL)
+			return -1;
+
+
+//파일 객체를 파일 디스크립터 테이블에 추가
+	t->fdt[t->next_fd] = f;
+//파일 디스크립터의 최대값 1 증가
+	ret = t->next_fd++;
+	return ret;
+}
+
+
+struct file *process_get_file(int fd){
+	struct thread *t = thread_current();
+// 디스크립터의 범위가 넘을 시에는 에러
+	if(fd <= 1 || t->next_fd > MAX_FILE)
+			return NULL;
+
+// 디스크립터에 해당하는 파일 객체를 반환
+	return t->fdt[fd];
+}
+
+void process_close_file(int fd){
+	struct file *f = process_get_file(fd);
+
+// file_close()를 호출해서 파일을 닫아준다
+	file_close(f);
+// 파일 디스크립터 테이블 해당 엔트리를 null로 초기화
+	thread_current()->fdt[fd] = NULL;
+}
+
 /* A thread function that loads a user process and starts it
    running. */
 static void
@@ -91,6 +133,7 @@ start_process (void *file_name_)
 
 	count = 0;
 // 문자열 전체를 할당하고 파싱하고 인자의 개수도 세어준다.
+//	parse = palloc_get_page(0);
 	for(token = strtok_r(file_name," " , &save_ptr);
 			token != NULL;
 			token = strtok_r(NULL, " " , &save_ptr),count++){
@@ -116,20 +159,22 @@ start_process (void *file_name_)
   success = load (true_fn, &if_.eip, &if_.esp);
 //메모리 탑재 완료시 부모 프로세스 다시 진행
 	struct thread *t = thread_current();
-	t->loaded = true;
-	sema_up(&t->load_sema);
   /* If load failed, quit. */
   palloc_free_page (file_name);
-  if (!success){
+
 //메모리 탑재 실패 시 프로세스 디스크립터에 메모리 탑재 실패
+  if (!success){
 		t->loaded = false;
+		sema_up(&t->load_sema);
     thread_exit ();
 	}
+	t->loaded = true;
+	sema_up(&t->load_sema);
 	
 // argument_stack()호출
 	argument_stack(parse, count, &if_.esp);
 //디버깅을 위한 것
-    hex_dump(if_.esp, if_.esp, PHYS_BASE - if_.esp, true);
+//    hex_dump(if_.esp, if_.esp, PHYS_BASE - if_.esp, true);
 //메모리 해제
 	for(i=0; i<count; i++){
 		free(parse[i]);
@@ -162,6 +207,20 @@ process_exit (void)
 {
   struct thread *cur = thread_current ();
   uint32_t *pd;
+	int i;
+	
+//프로세스가 종료될 때, 열린 모든 파일을 닫아준다
+//파일 디스크립터 최소값인 2부터 MAX_FILE까지 닫는다
+	for(i=2; i < cur->next_fd; i++){
+		process_close_file(i);
+	}
+
+
+//실행 중인 파일 닫기
+		file_close(cur->executing_file);
+
+//파일 디스크립터 테이블 메모리 해제
+	palloc_free_page((void*)cur->fdt);
 
   /* Destroy the current process's page directory and switch back
      to the kernel-only page directory. */
@@ -286,13 +345,25 @@ load (const char *file_name, void (**eip) (void), void **esp)
     goto done;
   process_activate ();
 
+//lock획득
+	lock_acquire(&file_lock);
+
   /* Open executable file. */
   file = filesys_open (file_name);
   if (file == NULL) 
     {
+//lock해제
+			lock_release(&file_lock);
       printf ("load: %s: open failed\n", file_name);
       goto done; 
     }
+
+//현재 실행할 파일로 초기화
+	t->executing_file = file;
+//파일에 대한 write를 거부
+	file_deny_write(file);
+//lock해제
+	lock_release(&file_lock);
 
   /* Read and verify executable header. */
   if (file_read (file, &ehdr, sizeof ehdr) != sizeof ehdr
@@ -377,7 +448,6 @@ load (const char *file_name, void (**eip) (void), void **esp)
 
  done:
   /* We arrive here whether the load is successful or not. */
-  file_close (file);
   return success;
 }
 
@@ -577,11 +647,12 @@ static void argument_stack(char **parse,int count,void **esp){
 struct thread *get_child_process(int pid){
 
 	struct thread *cur = thread_current();
-	struct list_elem *elem = cur->child_list.head.next;
+	struct list_elem *elem;
 
 //리스트를 이용하여 자식 리스트에 있는 프로세스 디스크립터를 검색
-	for(elem != list_end(&cur->child_list);
-			elem = list_next(elem); ){
+	for(elem = cur->child_list.head.next;
+			elem != list_end(&cur->child_list);
+			elem = list_next(elem) ){
 //	해당 pid의 프로세스 디스크립터가 존재하면 pid의 프로세스 디스크립터 반환
 		struct thread *t = list_entry(elem, struct thread, child_elem);
 		if(pid == t->tid) return t;
@@ -592,17 +663,20 @@ struct thread *get_child_process(int pid){
 
 //프로세스 디스크립터를 자식 리스트에 제거 후 메모리 해제
 void remove_child_process(struct thread *cp){
-	list_remove(&cp->child_elem);
-	palloc_free_page(cp);
+	if(cp != NULL){
+		list_remove(&cp->child_elem);
+		palloc_free_page((void *)cp);
+	}
 }
 
 //자식 프로세스가 종료될 때까지 부모 프로세스 대기
 int process_wait(tid_t child_tid UNUSED){
-//자식 프로세시의 프로세스 디스크립터 검색
+//자식 프로세스의 프로세스 디스크립터 검색
 	struct thread *child = get_child_process(child_tid);
 //에외 처리 발생시 -1 리턴
 	if(child == NULL) return -1;
 //자식프로세스가 종료될 때까지 부모 프로세스 대기
+//	printf("////////%snnnnnnn\n", thread_name());
 	sema_down(&child->exit_sema);
 //자식 프로세스 디스크립터 삭제 전 exit status 저장 
 	int exit_status = child->exit_status;

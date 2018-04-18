@@ -11,6 +11,7 @@
 #include "threads/switch.h"
 #include "threads/synch.h"
 #include "threads/vaddr.h"
+#include "threads/malloc.h"
 #ifdef USERPROG
 #include "userprog/process.h"
 #endif
@@ -19,6 +20,8 @@
    Used to detect stack overflow.  See the big comment at the top
    of thread.h for details. */
 #define THREAD_MAGIC 0xcd6abf4b
+// 파일 디스크립터에 메모리를 얼마나 할당한 것인지의 여부
+#define MAX_FILE 128
 
 /* List of processes in THREAD_READY state, that is, processes
    that are ready to run but not actually running. */
@@ -206,6 +209,8 @@ thread_create (const char *name, int priority,
 
   intr_set_level (old_level);
 
+
+
 //부모 프로세스 저장
 	t->parent = thread_current();
 //프로그램이 로드되지 않음
@@ -218,6 +223,12 @@ thread_create (const char *name, int priority,
 	sema_init(&t->load_sema, 0);
 //자식 리스트에 추가
 	list_push_back(&t->parent->child_list, &t->child_elem);
+
+// fd값을 2로 초기화
+	t->next_fd = 2;
+
+//파일 디스크립터 테이블에 메모리 할당
+	t->fdt = palloc_get_page(0);
 
   /* Add to run queue. */
   thread_unblock (t);
@@ -316,7 +327,9 @@ thread_exit (void)
 //프로세스 디스크립터에 프로세스 종료를 알림
 	t->exited = true;
 //부모프로세스의 대기 상태 이탈
-	sema_up(&t->exit_sema);
+	if(strcmp(thread_current()->name, "main")){
+		sema_up(&t->exit_sema);
+	}
 
   t->status = THREAD_DYING;
   schedule ();

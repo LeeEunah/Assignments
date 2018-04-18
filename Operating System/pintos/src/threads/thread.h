@@ -100,6 +100,8 @@ struct thread
     /* Owned by userprog/process.c. */
     uint32_t *pagedir;                  /* Page directory. */
 #endif
+//프로그램 파일을 가리키는 파일 구조체 포인터 추가
+		struct file *executing_file;
 
     /* Owned by thread.c. */
     unsigned magic;                     /* Detects stack overflow. */
@@ -120,8 +122,11 @@ struct thread
 		struct semaphore load_sema;
 //	exit 호출 시 종료 status
 		int exit_status;
-
-  };
+// 파일 디스크립터 테이블을 가리키는 포인터 필드 추가
+ 		struct file **fdt;
+// 다음 할당할 fd값 추가
+		int next_fd;
+	};
 
 /* If false (default), use round-robin scheduler.
    If true, use multi-level feedback queue scheduler.
