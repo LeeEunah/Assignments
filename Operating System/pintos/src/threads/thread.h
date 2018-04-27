@@ -126,7 +126,19 @@ struct thread
  		struct file **fdt;
 // 다음 할당할 fd값 추가
 		int next_fd;
+
+// 깨어나야 할 tick 저장
+	 	int64_t wakeup_tick;
 	};
+
+//실행 중인 스레드를 슬립을 만듬
+void thread_sleep(int64_t ticks);
+//슬립큐에서 깨워야할 스레드를 꺠움
+void thread_awake(int64_t ticks);
+//최소 틱을 가진 스레드 저장
+void update_next_tick_to_awake(int64_t ticks);
+//thread.c 의 next_tick_to_awake 반환
+int64_t get_next_tick_to_awake(void);
 
 /* If false (default), use round-robin scheduler.
    If true, use multi-level feedback queue scheduler.

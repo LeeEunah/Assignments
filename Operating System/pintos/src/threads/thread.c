@@ -23,6 +23,11 @@
 // 파일 디스크립터에 메모리를 얼마나 할당한 것인지의 여부
 #define MAX_FILE 128
 
+// THREAD_BLOCKED 상태의 스레드를 관리하기 위한 리스트 자료 구조 추가
+static struct list sleep_list;
+// sleep_list에서 대기 중인 스레드들의 wakeup_tick 값 중 최소값을 저장하기위한 변수 추가
+static int64_t next_tick_to_awake;
+
 /* List of processes in THREAD_READY state, that is, processes
    that are ready to run but not actually running. */
 static struct list ready_list;
@@ -95,6 +100,9 @@ thread_init (void)
   lock_init (&tid_lock);
   list_init (&ready_list);
   list_init (&all_list);
+
+//sleep_list를 초기화
+	list_init (&sleep_list);
 
   /* Set up a thread structure for the running thread. */
   initial_thread = running_thread ();
@@ -621,3 +629,51 @@ allocate_tid (void)
 /* Offset of `stack' member within `struct thread'.
    Used by switch.S, which can't figure it out on its own. */
 uint32_t thread_stack_ofs = offsetof (struct thread, stack);
+
+//실행 중인 스레드를 슬립을 만듬
+void thread_sleep(int64_t ticks){
+	
+	enum intr_level old = intr_disable();
+	struct thread *cur = thread_current();
+//현재 스레드가 idle 스레드가 아닐경우 thread의 상태 BLOCKED로 바꾸고 깨어나야 할 ticks을 저장, 슬립 큐에 샵입하고, awake함수가 실행되어야 할 tick값을 update
+	//if (cur!=idle_thread) cur->status = THREAD_BLOCKED;
+	cur->wakeup_tick = ticks;
+//현재 스레드를 슬립 큐에 샵입한 후에 스케줄한다.
+	list_push_back(&sleep_list, &cur->elem);
+	update_next_tick_to_awake(ticks);
+	thread_block();
+//해당 과정중에는 인터럽트를 받아들이지 않는다.
+	intr_set_level (old);
+}
+//슬립큐에서 깨워야할 스레드를 꺠움
+void thread_awake(int64_t ticks){
+//sleep lis의 모든 entry를 순회하며 다음과 같은 작업을 수행한다.
+//깨워야 할 tick이 현재 tick 보다 크다면 슬립 큐에서 제거하고 unblock한다.
+//작다면 update_next_tick_to_awake()를 호출한다.
+	struct list_elem *elem;	
+
+	for(elem = list_begin(&sleep_list);
+			elem!= list_end(&sleep_list);
+			elem){
+		struct thread *cur = list_entry(elem, struct thread,elem);
+		
+		if(ticks >= cur->wakeup_tick){
+			elem = list_remove(&cur->elem);
+			thread_unblock(cur);
+		}
+		else{
+			update_next_tick_to_awake(cur->wakeup_tick);
+			elem = list_next(elem);		
+		}
+	}
+}
+//최소 틱을 가진 스레드 저장
+void update_next_tick_to_awake(int64_t ticks){
+//next_tick_to_awake가 깨워야 할 스레드중 가장 작은 tick을 갖도록 업데이트 한다
+	if(ticks<next_tick_to_awake) next_tick_to_awake = ticks;
+}
+//thread.c 의 next_tick_to_awake 반환
+int64_t get_next_tick_to_awake(void){
+//next_tick_to_awake을 반환한다.
+ return next_tick_to_awake;
+}
