@@ -129,6 +129,7 @@ struct thread
 
 // 깨어나야 할 tick 저장
 	 	int64_t wakeup_tick;
+
 	};
 
 //실행 중인 스레드를 슬립을 만듬
@@ -175,5 +176,8 @@ int thread_get_nice (void);
 void thread_set_nice (int);
 int thread_get_recent_cpu (void);
 int thread_get_load_avg (void);
+
+void test_max_priority (void);
+bool cmp_priority (const struct list_elem *a_, const struct list_elem *b_, void *aux UNUSED);
 
 #endif /* threads/thread.h */
