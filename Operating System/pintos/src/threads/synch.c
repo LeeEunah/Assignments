@@ -68,7 +68,10 @@ sema_down (struct semaphore *sema)
   old_level = intr_disable ();
   while (sema->value == 0) 
     {
-      list_push_back (&sema->waiters, &thread_current ()->elem);
+//waiters 리스트 삽입 시, 우선순위대로 삽입
+			list_insert_ordered(&sema->waiters,&thread_current()->elem, 
+													cmp_priority, NULL);
+ //     list_push_back (&sema->waiters, &thread_current ()->elem);
       thread_block ();
     }
   sema->value--;
@@ -113,10 +116,15 @@ sema_up (struct semaphore *sema)
   ASSERT (sema != NULL);
 
   old_level = intr_disable ();
-  if (!list_empty (&sema->waiters)) 
-    thread_unblock (list_entry (list_pop_front (&sema->waiters),
+  if (!list_empty (&sema->waiters)){
+//스레드가 waiters list에 있는 동안 우선순위가 변경 되었을경우를 고려 하여 waiters list를 우선순위로 정렬한다.
+  	list_sort(&sema->waiters,cmp_priority,NULL);	
+	  thread_unblock (list_entry (list_pop_front (&sema->waiters),
                                 struct thread, elem));
+	}
   sema->value++;
+//priority preemption
+	test_max_priority();
   intr_set_level (old_level);
 }
 
@@ -195,8 +203,22 @@ lock_acquire (struct lock *lock)
   ASSERT (lock != NULL);
   ASSERT (!intr_context ());
   ASSERT (!lock_held_by_current_thread (lock));
+	
+//해당 lock의 holder가 존재 한다면 아래 작업을 수행한다
+//현재 스레드의 wait_on_lock 변수에 획득 하기를 기다리는 lock의 주소를 저장
+//multiple donation을 고려하기 위해 이전상태의 우선순위를 기억
+//priority donation수행하기 위해 donate_priority() 함수 호출
+	struct thread *cur = thread_current();
+	if(lock->holder){
+		cur->wait_on_lock = lock;
+		list_insert_ordered(&lock->holder->donations,&cur->donation_elem,
+												cmp_priority,NULL);
+		donate_priority();
+	} 
 
   sema_down (&lock->semaphore);
+	cur->wait_on_lock = NULL;
+//lock을 획득한 후 lock holder를 갱신
   lock->holder = thread_current ();
 }
 
@@ -232,7 +254,11 @@ lock_release (struct lock *lock)
   ASSERT (lock_held_by_current_thread (lock));
 
   lock->holder = NULL;
+	remove_with_lock(lock);
+	refresh_priority();
   sema_up (&lock->semaphore);
+	
+	//if(strcmp(thread_name(),"main")) debug_backtrace();
 }
 
 /* Returns true if the current thread holds LOCK, false
@@ -242,7 +268,6 @@ bool
 lock_held_by_current_thread (const struct lock *lock) 
 {
   ASSERT (lock != NULL);
-
   return lock->holder == thread_current ();
 }
 
@@ -295,8 +320,10 @@ cond_wait (struct condition *cond, struct lock *lock)
   ASSERT (lock_held_by_current_thread (lock));
   
   sema_init (&waiter.semaphore, 0);
-  list_push_back (&cond->waiters, &waiter.elem);
-  lock_release (lock);
+ // list_push_back (&cond->waiters, &waiter.elem);
+ //condition variable의 waiters list에 우선순위 순서로 삽입되도록 수정
+  list_insert_ordered(&cond->waiters,&waiter.elem,cmp_sem_priority,NULL);
+	lock_release (lock);
   sema_down (&waiter.semaphore);
   lock_acquire (lock);
 }
@@ -316,9 +343,11 @@ cond_signal (struct condition *cond, struct lock *lock UNUSED)
   ASSERT (!intr_context ());
   ASSERT (lock_held_by_current_thread (lock));
 
-  if (!list_empty (&cond->waiters)) 
-    sema_up (&list_entry (list_pop_front (&cond->waiters),
+  if (!list_empty (&cond->waiters)){
+ 		list_sort(&cond->waiters,cmp_sem_priority,NULL);
+		sema_up (&list_entry (list_pop_front (&cond->waiters),
                           struct semaphore_elem, elem)->semaphore);
+	}
 }
 
 /* Wakes up all threads, if any, waiting on COND (protected by
@@ -335,4 +364,21 @@ cond_broadcast (struct condition *cond, struct lock *lock)
 
   while (!list_empty (&cond->waiters))
     cond_signal (cond, lock);
+}
+
+//첫 번째 인자의 우선수위가 두번째 인자의 우선순위보다 높으면 1을 반환 
+//낮으면 0 반환
+bool cmp_sem_priority(const struct list_elem *a,const struct 
+														list_elem *b, void *aux UNUSED){
+	struct semaphore_elem *sa = list_entry(a,struct semaphore_elem,elem);
+	struct semaphore_elem *sb = list_entry(b,struct semaphore_elem,elem);
+
+//해당 condition variable을 기다리는 세마포어 리스트를 가장 높은 우선순위를
+// 가지는 스레드의 우선순위순으로 정렬
+	struct thread *ta = list_entry(list_begin(&sa->semaphore.waiters),
+																struct thread,elem);
+	struct thread *tb = list_entry(list_begin(&sb->semaphore.waiters),
+																struct thread,elem);
+
+	return ta->priority > tb->priority;
 }

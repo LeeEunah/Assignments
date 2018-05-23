@@ -129,6 +129,11 @@ struct thread
 
 // 깨어나야 할 tick 저장
 	 	int64_t wakeup_tick;
+//priority donation 관련 자료구조	
+		int init_priority;
+		struct lock *wait_on_lock;
+		struct list donations;
+		struct list_elem donation_elem;
 
 	};
 
@@ -179,5 +184,7 @@ int thread_get_load_avg (void);
 
 void test_max_priority (void);
 bool cmp_priority (const struct list_elem *a_, const struct list_elem *b_, void *aux UNUSED);
-
+void donate_priority(void);
+void remove_with_lock(struct lock *lock);
+void refresh_priority(void);
 #endif /* threads/thread.h */

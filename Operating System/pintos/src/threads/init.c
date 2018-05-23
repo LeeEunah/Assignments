@@ -131,7 +131,7 @@ main (void)
   
   /* Run actions specified on kernel command line. */
   run_actions (argv);
-
+	
   /* Finish up. */
   shutdown ();
   thread_exit ();
@@ -340,7 +340,6 @@ run_actions (char **argv)
       a->function (argv);
       argv += a->argc;
     }
-  
 }
 
 /* Prints a kernel command line help message and powers off the
