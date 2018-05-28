@@ -1,14 +1,14 @@
 # Assignments
 class assignments and studies
 
-**Data Science** . 
+**Data Science** <br />
 The assignment reports is included in each directory.  
 The codes were implemented in Python3.
 1. Association rule based on apriori algorithm
 2. Decision Tree
 3. DBscan clutsering
 
-**Operating System (PintOS)** . 
+**Operating System (PintOS)** <br />
 I worked this assignment with a partner. (2 people in a team)  
 The codes were implemented in C.
 - User Program
