@@ -1,0 +1,35 @@
+../../threads/thread.c: In function ‘thread_awake’:
+../../threads/thread.c:691:2: warning: statement with no effect
+../../userprog/process.c: In function ‘argument_stack’:
+../../userprog/process.c:654:7: warning: assignment makes pointer from integer without a cast
+../../userprog/process.c:656:2: warning: passing argument 2 of ‘memset’ makes integer from pointer without a cast
+../../lib/string.h:19:7: note: expected ‘int’ but argument is of type ‘void *’
+../../userprog/process.c:672:2: warning: passing argument 2 of ‘memset’ makes integer from pointer without a cast
+../../lib/string.h:19:7: note: expected ‘int’ but argument is of type ‘void *’
+../../userprog/process.c: In function ‘start_process’:
+../../userprog/process.c:132:9: warning: ‘parse’ may be used uninitialized in this function
+../../userprog/syscall.c: In function ‘check_address’:
+../../userprog/syscall.c:141:50: warning: unused parameter ‘esp’
+../../userprog/syscall.c: In function ‘read’:
+../../userprog/syscall.c:310:2: warning: comparison of unsigned expression < 0 is always false
+../../vm/page.c: In function ‘vm_hash_func’:
+../../vm/page.c:15:64: warning: unused parameter ‘aux’
+../../vm/page.c: In function ‘vm_init’:
+../../vm/page.c:34:2: warning: passing argument 3 of ‘hash_init’ from incompatible pointer type
+../../lib/kernel/hash.h:78:6: note: expected ‘_Bool (*)(const struct hash_elem *, const struct hash_elem *, void *)’ but argument is of type ‘_Bool (*)(const struct hash_elem *, const struct hash_elem *)’
+../../vm/page.c: At top level:
+../../vm/page.c:67:6: warning: no previous prototype for ‘vm_destroy_func’
+../../vm/page.c: In function ‘vm_destroy_func’:
+../../vm/page.c:67:49: warning: unused parameter ‘aux’
+../../vm/page.c: In function ‘load_file’:
+../../vm/page.c:99:3: warning: implicit declaration of function ‘memset’
+../../vm/page.c:99:3: warning: incompatible implicit declaration of built-in function ‘memset’
+../../vm/page.c:102:3: warning: incompatible implicit declaration of built-in function ‘memset’
+ar: creating libc.a
+make[1]: *** 파일 `tests/userprog/args-none.output'을(를) 지웁니다
+make[1]: *** wait: 하위 프로세스가 없음.  멈춤.
+make[1]: *** 끝나지 않은 작업을 기다리고 있습니다....
+make[1]: *** wait: 하위 프로세스가 없음.  멈춤.
+make: *** wait: 하위 프로세스가 없음.  멈춤.
+make: *** 끝나지 않은 작업을 기다리고 있습니다....
+make: *** wait: 하위 프로세스가 없음.  멈춤.

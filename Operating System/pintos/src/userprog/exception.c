@@ -1,11 +1,16 @@
 #include "userprog/exception.h"
 #include <inttypes.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include "userprog/gdt.h"
 #include "threads/interrupt.h"
 #include "threads/thread.h"
 #include "userprog/syscall.h"
 #include "userprog/process.h"
+#include "threads/vaddr.h"
+#include "syscall.h"
+
+#include "vm/page.h"
 
 /* Number of page faults processed. */
 static long long page_fault_cnt;
@@ -127,7 +132,8 @@ page_fault (struct intr_frame *f)
   bool not_present;  /* True: not-present page, false: writing r/o page. */
   bool write;        /* True: access was write, false: access was read. */
   bool user;         /* True: access by user, false: access by kernel. */
-  void *fault_addr;  /* Fault address. */
+// page_fault가 발생한 가상주소
+	void *fault_addr;  /* Fault address. */
 
   /* Obtain faulting address, the virtual address that was
      accessed to cause the fault.  It may point to code or to
@@ -150,17 +156,23 @@ page_fault (struct intr_frame *f)
   write = (f->error_code & PF_W) != 0;
   user = (f->error_code & PF_U) != 0;
 
-// 에러 메시지를 방지하기 위해 일단 호출한다
-	exit(-1);
+// read only 페이지에 대한 접근이 아닐 경우(not present)
+// user or kenel 접근 확인
+	if (user){
+		if (not_present){ // present bit의 유무 확인
+			struct vm_entry *vme = find_vme(fault_addr);
 
-  /* To implement virtual memory, delete the rest of the function
-     body, and replace it with code that brings in the page to
-     which fault_addr refers. */
-  printf ("Page fault at %p: %s error %s page in %s context.\n",
-          fault_addr,
-          not_present ? "not present" : "rights violation",
-          write ? "writing" : "reading",
-          user ? "user" : "kernel");
-  kill (f);
+			if (vme){
+				if(write && (vme->writable == 0)){
+					exit(-1);
+				}
+				handle_mm_fault(vme);
+			} else{
+				exit(-1);
+			}
+		} else{
+			exit(-1);
+		}
+	} else
+  	exit(-1);
 }
-

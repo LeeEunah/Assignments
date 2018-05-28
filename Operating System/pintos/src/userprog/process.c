@@ -1,4 +1,3 @@
-#include "userprog/process.h"
 #include <debug.h>
 #include <inttypes.h>
 #include <round.h>
@@ -8,18 +7,21 @@
 #include "userprog/gdt.h"
 #include "userprog/pagedir.h"
 #include "userprog/tss.h"
+#include "userprog/syscall.h"
+#include "userprog/process.h"
 #include "filesys/directory.h"
 #include "filesys/file.h"
 #include "filesys/filesys.h"
+#include "filesys/inode.h"
 #include "threads/flags.h"
 #include "threads/init.h"
 #include "threads/interrupt.h"
 #include "threads/palloc.h"
 #include "threads/thread.h"
 #include "threads/vaddr.h"
-
 // malloc 사용을 위해
 #include "threads/malloc.h"
+#include "vm/page.h"
 
 #define MAX_FILE 128
 
@@ -131,6 +133,8 @@ start_process (void *file_name_)
 	char *true_fn,*token, *save_ptr;
 	int i, count;
 
+	vm_init(&thread_current()->vm);
+
 	count = 0;
 // 문자열 전체를 할당하고 파싱하고 인자의 개수도 세어준다.
 //	parse = palloc_get_page(0);
@@ -149,6 +153,9 @@ start_process (void *file_name_)
 //프로그램 이름을 true_fn에 넣어준다
 	true_fn = parse[0];
 
+// vm_init()함수를 이용해서 현재 쓰레드의 해시테이블 초기화
+//	vm_init(&thread_current()->vm);
+
   /* Initialize interrupt frame and load executable. */
   memset (&if_, 0, sizeof if_);
   if_.gs = if_.fs = if_.es = if_.ds = if_.ss = SEL_UDSEG;
@@ -157,6 +164,7 @@ start_process (void *file_name_)
 
 // true_fn을 load한다.
   success = load (true_fn, &if_.eip, &if_.esp);
+
 //메모리 탑재 완료시 부모 프로세스 다시 진행
 	struct thread *t = thread_current();
   /* If load failed, quit. */
@@ -221,6 +229,9 @@ process_exit (void)
 
 //파일 디스크립터 테이블 메모리 해제
 	palloc_free_page((void*)cur->fdt);
+
+// vm_entry들을 제거하는 함수 추가
+	vm_destroy(&cur->vm);
 
   /* Destroy the current process's page directory and switch back
      to the kernel-only page directory. */
@@ -518,7 +529,7 @@ static bool
 load_segment (struct file *file, off_t ofs, uint8_t *upage,
               uint32_t read_bytes, uint32_t zero_bytes, bool writable) 
 {
-  ASSERT ((read_bytes + zero_bytes) % PGSIZE == 0);
+	ASSERT ((read_bytes + zero_bytes) % PGSIZE == 0);
   ASSERT (pg_ofs (upage) == 0);
   ASSERT (ofs % PGSIZE == 0);
 
@@ -531,29 +542,28 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
       size_t page_read_bytes = read_bytes < PGSIZE ? read_bytes : PGSIZE;
       size_t page_zero_bytes = PGSIZE - page_read_bytes;
 
-      /* Get a page of memory. */
-      uint8_t *kpage = palloc_get_page (PAL_USER);
-      if (kpage == NULL)
-        return false;
+// 물리 페이지를 할당하고 맵핑하는 부분 삭제(done)
 
-      /* Load this page. */
-      if (file_read (file, kpage, page_read_bytes) != (int) page_read_bytes)
-        {
-          palloc_free_page (kpage);
-          return false; 
-        }
-      memset (kpage + page_read_bytes, 0, page_zero_bytes);
+// vm_entry 생성(malloc 사용)
+			struct vm_entry *vme = (struct vm_entry*)malloc(sizeof(struct vm_entry));
 
-      /* Add the page to the process's address space. */
-      if (!install_page (upage, kpage, writable)) 
-        {
-          palloc_free_page (kpage);
-          return false; 
-        }
+// vm_entry 멤버들 설정
+			vme->type = VM_BIN;
+			vme->vaddr = upage;
+			vme->writable = writable;
+			vme->is_loaded = false;
+			vme->file = file;
+			vme->offset = ofs;
+			vme->read_bytes = page_read_bytes;
+			vme->zero_bytes = page_zero_bytes;
 
+// insert_vme()함수를 사용해서 생성한 vm_entry를 해시테이블에 추가
+			insert_vme(&thread_current()->vm, vme);
+		
       /* Advance. */
       read_bytes -= page_read_bytes;
       zero_bytes -= page_zero_bytes;
+			ofs += page_read_bytes;
       upage += PGSIZE;
     }
   return true;
@@ -573,10 +583,26 @@ setup_stack (void **esp)
       success = install_page (((uint8_t *) PHYS_BASE) - PGSIZE, kpage, true);
       if (success)
         *esp = PHYS_BASE;
-      else
+      else{
         palloc_free_page (kpage);
+			}
     }
-  return success;
+
+// vm_entry 생성
+	struct vm_entry *vme = (struct vm_entry*)malloc(sizeof(struct vm_entry));
+	if (vme == NULL)
+			return false;
+// vm_entry 멤버들 설정
+	vme = malloc(sizeof(struct vm_entry));
+	vme->type = VM_ANON;
+	vme->vaddr = ((uint8_t*)PHYS_BASE) - PGSIZE;
+	vme->writable = true;
+	vme->is_loaded = true;
+	
+// insert_vme() 함수로 해시테이블에 추가
+	insert_vme(&thread_current()->vm, vme);
+	
+	return true;
 }
 
 /* Adds a mapping from user virtual address UPAGE to kernel
@@ -595,8 +621,9 @@ install_page (void *upage, void *kpage, bool writable)
 
   /* Verify that there's not already a page at that virtual
      address, then map our page there. */
-  return (pagedir_get_page (t->pagedir, upage) == NULL
+  bool success = (pagedir_get_page (t->pagedir, upage) == NULL
           && pagedir_set_page (t->pagedir, upage, kpage, writable));
+	return success;
 }
 
 //parse = ehco asdfsadfdasfa
@@ -676,7 +703,6 @@ int process_wait(tid_t child_tid UNUSED){
 //에외 처리 발생시 -1 리턴
 	if(child == NULL) return -1;
 //자식프로세스가 종료될 때까지 부모 프로세스 대기
-//	printf("////////%snnnnnnn\n", thread_name());
 	sema_down(&child->exit_sema);
 //자식 프로세스 디스크립터 삭제 전 exit status 저장 
 	int exit_status = child->exit_status;
@@ -684,4 +710,40 @@ int process_wait(tid_t child_tid UNUSED){
 	remove_child_process(child);
 //자식 프로세스의 exit status 리턴
 	return exit_status;
+}
+
+// 페이지 폴트 발생 시 물리페이지를 할당
+bool handle_mm_fault(struct vm_entry *vme){
+	/* palloc_get_page()를이용해서물리메모리할당*/
+	if(vme->is_loaded) {
+			return false;
+	}
+
+	void* kaddr = palloc_get_page(PAL_USER);
+
+		/* switch문으로vm_entry의타입별처리(VM_BIN외의나머지타입은mmf와swapping에서다룸*/
+	switch(vme->type){
+		case VM_BIN:
+			if(!load_file(kaddr, vme)){
+				palloc_free_page(kaddr);
+				return false;
+			}
+			break;
+	
+		case VM_FILE:
+			break;
+	
+		case VM_ANON:
+			break;
+	}
+
+		/* VM_BIN일경우load_file()함수를이용해서물리메모리에로드*/
+		/* install_page를이용해서물리페이지와가상페이지맵핑*/
+	if(install_page(vme->vaddr, kaddr, vme->writable) == false){
+			palloc_free_page(kaddr);
+			return false;
+	}
+		/* 로드성공여부반환*/
+	vme->is_loaded = true;
+	return true;
 }

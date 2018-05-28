@@ -4,6 +4,7 @@
 #include <debug.h>
 #include <list.h>
 #include <stdint.h>
+#include <hash.h>
 
 //세마포어를 사용하기 위해
 #include "threads/synch.h"
@@ -105,6 +106,9 @@ struct thread
 
     /* Owned by thread.c. */
     unsigned magic;                     /* Detects stack overflow. */
+
+//  스레드가 가진 가상 주소 공간을 관리하는 해시테이블		
+		struct hash vm;
 
 //	부모 프로세스의 디스크립터
 		struct thread *parent;

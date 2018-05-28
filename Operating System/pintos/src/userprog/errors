@@ -1,0 +1,53 @@
+../../threads/thread.c: In function ‘thread_awake’:
+../../threads/thread.c:691:2: warning: statement with no effect
+../../userprog/process.c: In function ‘argument_stack’:
+../../userprog/process.c:641:7: warning: assignment makes pointer from integer without a cast
+../../userprog/process.c:643:2: warning: passing argument 2 of ‘memset’ makes integer from pointer without a cast
+../../lib/string.h:19:7: note: expected ‘int’ but argument is of type ‘void *’
+../../userprog/process.c:659:2: warning: passing argument 2 of ‘memset’ makes integer from pointer without a cast
+../../lib/string.h:19:7: note: expected ‘int’ but argument is of type ‘void *’
+../../userprog/process.c: At top level:
+../../userprog/process.c:706:6: warning: no previous prototype for ‘handle_mm_fault’
+../../userprog/process.c: In function ‘start_process’:
+../../userprog/process.c:132:9: warning: ‘parse’ may be used uninitialized in this function
+../../userprog/process.c: In function ‘handle_mm_fault’:
+../../userprog/process.c:708:7: warning: ‘load’ may be used uninitialized in this function
+../../userprog/exception.c: In function ‘page_fault’:
+../../userprog/exception.c:163:3: warning: implicit declaration of function ‘handle_mm_fault’
+../../userprog/syscall.c: In function ‘syscall_handler’:
+../../userprog/syscall.c:76:5: warning: implicit declaration of function ‘check_valid_string’
+../../userprog/syscall.c:109:5: warning: implicit declaration of function ‘check_valid_buffer’
+../../userprog/syscall.c: In function ‘check_address’:
+../../userprog/syscall.c:137:50: warning: unused parameter ‘esp’
+../../userprog/syscall.c: At top level:
+../../userprog/syscall.c:151:6: warning: no previous prototype for ‘check_valid_buffer’
+../../userprog/syscall.c:151:6: warning: conflicting types for ‘check_valid_buffer’
+../../userprog/syscall.c:109:5: note: previous implicit declaration of ‘check_valid_buffer’ was here
+../../userprog/syscall.c:169:6: warning: no previous prototype for ‘check_valid_string’
+../../userprog/syscall.c:169:6: warning: conflicting types for ‘check_valid_string’
+../../userprog/syscall.c:76:5: note: previous implicit declaration of ‘check_valid_string’ was here
+../../userprog/syscall.c: In function ‘check_valid_string’:
+../../userprog/syscall.c:170:2: warning: passing argument 1 of ‘check_address’ discards qualifiers from pointer target type
+../../userprog/syscall.c:137:18: note: expected ‘void *’ but argument is of type ‘const void *’
+../../userprog/syscall.c:175:3: warning: passing argument 1 of ‘check_address’ discards qualifiers from pointer target type
+../../userprog/syscall.c:137:18: note: expected ‘void *’ but argument is of type ‘const void *’
+../../userprog/syscall.c: In function ‘read’:
+../../userprog/syscall.c:295:2: warning: comparison of unsigned expression < 0 is always false
+userprog/process.o: In function `process_exit':
+/home/eunah/os_assignment/Project3/src/userprog/build/../../userprog/process.c:231: undefined reference to `vm_destroy'
+userprog/process.o: In function `start_process':
+/home/eunah/os_assignment/Project3/src/userprog/build/../../userprog/process.c:155: undefined reference to `vm_init'
+userprog/process.o: In function `load_segment':
+/home/eunah/os_assignment/Project3/src/userprog/build/../../userprog/process.c:557: undefined reference to `insert_vme'
+userprog/process.o: In function `setup_stack':
+/home/eunah/os_assignment/Project3/src/userprog/build/../../userprog/process.c:594: undefined reference to `insert_vme'
+userprog/process.o: In function `load':
+/home/eunah/os_assignment/Project3/src/userprog/build/../../userprog/process.c:594: undefined reference to `insert_vme'
+userprog/process.o: In function `handle_mm_fault':
+/home/eunah/os_assignment/Project3/src/userprog/build/../../userprog/process.c:714: undefined reference to `load_file'
+userprog/exception.o: In function `page_fault':
+/home/eunah/os_assignment/Project3/src/userprog/build/../../userprog/exception.c:160: undefined reference to `find_vme'
+userprog/syscall.o: In function `check_address':
+/home/eunah/os_assignment/Project3/src/userprog/build/../../userprog/syscall.c:142: undefined reference to `find_vme'
+make[1]: *** [kernel.o] 오류 1
+make: *** [all] 오류 2

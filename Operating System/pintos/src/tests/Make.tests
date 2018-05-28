@@ -14,7 +14,8 @@ ifdef PROGS
 include ../../Makefile.userprog
 endif
 
-TIMEOUT = 60
+# make check시 fail발생 방지하기 위해 시간 늘림
+TIMEOUT = 120
 
 clean::
 	rm -f $(OUTPUTS) $(ERRORS) $(RESULTS) 

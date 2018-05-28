@@ -12,8 +12,11 @@
 #include <devices/input.h>
 #include "userprog/process.h"
 #include "threads/malloc.h"
+#include "vm/page.h"
 
-void check_address(void*);
+struct vm_entry* check_address(void*, void*);
+void check_valid_buffer(void*, unsigned, void*, bool);
+void check_valid_string(const void*, void*);
 void get_argument(void*, int*, int);
 
 //System Call
@@ -35,12 +38,11 @@ void close(int);
 static void syscall_handler (struct intr_frame *);
 
 //lock 구조체 선언
-struct lock file_lock;
+//struct lock file_lock;
 
 void
 syscall_init (void) 
 {
-//	printf("init\n");
   intr_register_int (0x30, 3, INTR_ON, syscall_handler, "syscall");
 
 //파일 lock 초기화
@@ -57,7 +59,7 @@ syscall_handler (struct intr_frame *f UNUSED)
 // 인자들을 담을 배열을 선언
 	int arg[5];
 
-	check_address(f->esp);
+	check_address(f->esp, f->esp);
 
 	switch(syscall_nr){
 		case SYS_HALT:
@@ -72,6 +74,7 @@ syscall_handler (struct intr_frame *f UNUSED)
 
 		case SYS_EXEC:
 				get_argument(f->esp,arg,1);
+				check_valid_string((const void*)arg[0], f->esp);
 				f->eax = exec((const char*)arg[0]);
 				break;
 		
@@ -82,17 +85,20 @@ syscall_handler (struct intr_frame *f UNUSED)
 // 주소값을 인자로 받는 경우 사용자가 접근하는 주소가 올바른지 여부를 확인
 		case SYS_CREATE:
 				get_argument(f->esp, arg, 2);
+				check_valid_string((const void *)arg[0], f->esp);
 // 반환값을 가져온다.
 				f->eax = create((const char*)arg[0], (unsigned)arg[1]);
 				break;
 
 		case SYS_REMOVE:
 				get_argument(f->esp, arg, 1);
+				check_valid_string((const void*)arg[0], f->esp);
 				f->eax = remove((const char*)arg[0]);
 				break;
 
 		case SYS_OPEN:
 				get_argument(f->esp, arg, 1);
+				check_valid_string((const void*)arg[0], f->esp);
 				f->eax = open((const char*)arg[0]);
 				break;
 
@@ -103,11 +109,13 @@ syscall_handler (struct intr_frame *f UNUSED)
 
 		case SYS_READ:
 				get_argument(f->esp, arg, 3);
+				check_valid_buffer((void*)arg[1], (unsigned)arg[2], f->esp, true);
 				f->eax = read((int)arg[0], (void*)arg[1], (unsigned)arg[2]);
 				break;
 	
 		case SYS_WRITE:
 				get_argument(f->esp, arg, 3);
+				check_valid_buffer((void*)arg[1], (unsigned)arg[2], f->esp, false);
 				f->eax = write((int)arg[0], (void*)arg[1], (unsigned)arg[2]);
 				break;
 
@@ -125,13 +133,60 @@ syscall_handler (struct intr_frame *f UNUSED)
 				get_argument(f->esp, arg, 1);
 				close((int)arg[0]);
 				break;
+
+		default:
+				thread_exit();
 	}
 }
 
 // 시스템 콜 인자로 받은 주소값이 유저 영역에 있는 것인지 확인
-void check_address(void *addr){
+struct vm_entry* check_address(void *addr, void* esp){
  if(!((void*)0x8048000 < addr && addr < (void*)0xc0000000))
 		 exit(-1);
+	
+ bool load;
+ struct vm_entry* vme = find_vme((void*)addr);
+// addr이 vm_entry에 존재하면 vm_entry를 반환하도록 코드 작성
+	if(vme){
+		handle_mm_fault(vme);
+		load = vme->is_loaded;
+	}
+
+	if(load == false){
+		exit(-1);
+	}
+	
+	return vme;
+}
+
+void check_valid_buffer (void *buffer, unsigned size, void *esp, bool to_write){
+	char* cur_buffer = (char *) buffer;
+	unsigned i;
+// buffer ~ buffer + size까지 주소에 대해 적용
+	for(i=0; i<size; i++){
+// 주소의 유저영역 여부를 검사한 vm_entry 구조체를 얻는다
+		struct vm_entry* vme = check_address((const void*)cur_buffer, esp);
+// vm_entry 존재여부와 writable이 true인지 검사
+		if (vme && to_write){
+			if(!vme->writable){
+				exit(-1);
+			}
+		}
+		cur_buffer++;
+	}
+}
+
+// 인자의 문자열의 주소값이 유효한 가상주소인지 검사
+void check_valid_string (const void *str, void *esp){
+	void* cur_str = (void*)str;
+	
+	check_address(cur_str, esp);
+
+	while(*(char*) str != 0){
+			str = (char *) str + 1;
+			check_address(str, esp);
+	}
+
 }
 
 void get_argument(void *esp, int *arg, int count){
@@ -139,8 +194,8 @@ void get_argument(void *esp, int *arg, int count){
 // esp의 꼭대기에는 system number가 저장되어 있으므로 +4를 한다.
 	esp += 4;
 // stack이 커널 영역을 침범하지 않았는지 확인
-	check_address(esp);
-	check_address(esp + (count * 4));
+	check_address(esp, esp);
+	check_address(esp + (count * 4), esp);
 
 // 인자 개수만큼 esp에 저장해준다.
 	for(i=0; i<count; i++){
@@ -162,18 +217,21 @@ void exit(int status){
 }
 
 bool create(const char *file, unsigned initial_size){
-	check_address((void*)file);
-	return filesys_create(file, initial_size);
+	lock_acquire(&file_lock);
+	bool success = filesys_create(file, initial_size);
+	lock_release(&file_lock);
+	return success;
 }
 
 bool remove(const char *file){
-	check_address((void*)file);
-	return filesys_remove(file);
+	lock_acquire(&file_lock);
+	bool success = filesys_remove(file);
+	lock_release(&file_lock);
+	return success;
 }
 
 //자식프로세스를 생성하고 프로그램을 실행시키는 시스템 콜
 tid_t exec(const char *cmd_line){
-	check_address((void*)cmd_line);
 //명령어의 해당하는 프로그램을 수행하는 프로세스 생성
 	tid_t tid = process_execute(cmd_line);
 //생성된 자식 프로세스의 프로세스 디스크립터를 검색
@@ -200,7 +258,6 @@ int wait(tid_t tid){
 }
 
 int open(const char *file){
-	check_address((void*)file);
 	lock_acquire(&file_lock);
 // 파일을 open	
 	struct file *f = filesys_open(file);
@@ -220,19 +277,23 @@ int open(const char *file){
 }
 
 int filesize(int fd){
+	lock_acquire(&file_lock);
 //파일 디스크립터를 이용하여 파일 객체 검색
 	struct file *f = process_get_file(fd);
 
 //파일이 존재하지 않을 때
-	if(!f)
-			return -1;
+	if(!f){
+		lock_release(&file_lock);
+		return -1;
+	}
 
 //파일 길이를 리턴
-	return file_length(f);
+	int size = file_length(f);
+	lock_release(&file_lock);
+	return size;
 }
 
 int read(int fd, void *buffer, unsigned size){
-	check_address(buffer);
 	unsigned i;
 //파일 디스크립터를 이용해서 파일 객체 검색
 // open을 제외한 모든 file관련 시스템 콜은 fd를 file포인터로 바꿔줘야함
@@ -242,8 +303,7 @@ int read(int fd, void *buffer, unsigned size){
 
 //error검사
 	if(fd < 0)	return -1;
-	if(size < 0) return -1;
-
+// if(size < 0) return -1;
 // input_getc()를 이용해서 키보드 입력을 버퍼에 저장 후 그 크기를 리턴
 	if(fd == 0){
 		for(i=0; i<size; i++){
@@ -265,7 +325,6 @@ int read(int fd, void *buffer, unsigned size){
 }
 
 int write(int fd, void *buffer, unsigned size){
-	check_address(buffer);
 	struct file *f = process_get_file(fd);
 //lock사용
 	lock_acquire(&file_lock);
@@ -284,18 +343,33 @@ int write(int fd, void *buffer, unsigned size){
 }
 
 void seek(int fd, unsigned position){
+	lock_acquire(&file_lock);
 	struct file *f = process_get_file(fd);
+	if(!f){
+		lock_release(&file_lock);
+		return;
+	}
 //offset을 position만큼 이동
 	file_seek(f, position);
+	lock_release(&file_lock);
 }
 
 unsigned tell(int fd){
+	lock_acquire(&file_lock);
 	struct file *f = process_get_file(fd);
+	if(!f){
+		lock_release(&file_lock);
+		return -1;
+	}
 //offset을 반환
-	return file_tell(f);
+	off_t ofs = file_tell(f);
+	lock_release(&file_lock);
+	return ofs;
 }
 
 void close(int fd){
+	lock_acquire(&file_lock);
 // 해당 파일 디스크립터에 해당하는 파일을 닫고 엔트리 초기화
 	process_close_file(fd);
+	lock_release(&file_lock);
 }
