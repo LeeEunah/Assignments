@@ -108,10 +108,11 @@ def checkUser(Dtrain, Dtest):
             target_row = predictRating(Dtrain, Dtest, target_user)
             
         dup_check.add(target_user)
-        for (movie, rating) in target_row:
-            if movie == target_movie:
-                result.append((target_user, target_movie, rating))
 
+        rate = [rating for (movie, rating) in target_row if movie == target_movie]
+        if len(rate) == 0:
+            rate = [2]
+        result.append((target_user, target_movie, rate[0]))
     return result
 
 
