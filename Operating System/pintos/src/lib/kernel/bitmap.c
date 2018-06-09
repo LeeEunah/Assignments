@@ -199,6 +199,8 @@ bool
 bitmap_test (const struct bitmap *b, size_t idx) 
 {
   ASSERT (b != NULL);
+//	printf("//////idx: ", idx);
+//	printf("......cnt: ", b->bit_cnt);
   ASSERT (idx < b->bit_cnt);
   return (b->bits[elem_idx (idx)] & bit_mask (idx)) != 0;
 }

@@ -65,6 +65,8 @@ userprog_SRC += userprog/tss.c		# TSS management.
 #vm_SRC = vm/file.c			# Some file.
 # 추가한 page파일을 사용하기 위해 코드 추가
 vm_SRC = vm/page.c
+vm_SRC += vm/frame.c
+vm_SRC += vm/swap.c
 
 # Filesystem code.
 filesys_SRC  = filesys/filesys.c	# Filesystem core.

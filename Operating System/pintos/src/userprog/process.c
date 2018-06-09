@@ -133,7 +133,11 @@ start_process (void *file_name_)
 	char *true_fn,*token, *save_ptr;
 	int i, count;
 
+// vm 초기화
 	vm_init(&thread_current()->vm);
+
+// mmap 초기화
+	list_init(&thread_current()->mmap_list);
 
 	count = 0;
 // 문자열 전체를 할당하고 파싱하고 인자의 개수도 세어준다.
@@ -229,6 +233,9 @@ process_exit (void)
 
 //파일 디스크립터 테이블 메모리 해제
 	palloc_free_page((void*)cur->fdt);
+
+// 매핑된 파일을 전부 지운다
+	munmap(-1);
 
 // vm_entry들을 제거하는 함수 추가
 	vm_destroy(&cur->vm);
@@ -574,35 +581,50 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
 static bool
 setup_stack (void **esp) 
 {
-  uint8_t *kpage;
+  struct page *kpage;
   bool success = false;
 
-  kpage = palloc_get_page (PAL_USER | PAL_ZERO);
-  if (kpage != NULL) 
-    {
-      success = install_page (((uint8_t *) PHYS_BASE) - PGSIZE, kpage, true);
-      if (success)
-        *esp = PHYS_BASE;
-      else{
-        palloc_free_page (kpage);
-			}
-    }
+  //kpage = alloc_page (PAL_USER | PAL_ZERO);
+	//void *kaddr = kpage->kaddr;
+  //if (kpage != NULL) 
+  //  {
+  //    success = install_page (((uint8_t *) PHYS_BASE) - PGSIZE, kaddr, true);
+  //    if (success)
+  //     *esp = PHYS_BASE;
+  //   else{
+  //    free_page(kpage);
+	//		}
+  //  }
 
 // vm_entry 생성
 	struct vm_entry *vme = (struct vm_entry*)malloc(sizeof(struct vm_entry));
 	if (vme == NULL)
 			return false;
 // vm_entry 멤버들 설정
-	vme = malloc(sizeof(struct vm_entry));
+	//vme = malloc(sizeof(struct vm_entry));
 	vme->type = VM_ANON;
 	vme->vaddr = ((uint8_t*)PHYS_BASE) - PGSIZE;
 	vme->writable = true;
 	vme->is_loaded = true;
-	
+	vme->pinned = false;
+
+	struct page* page = alloc_page(PAL_USER | PAL_ZERO);
+	page->vme = vme;
+	void *kaddr = page->kaddr;
 // insert_vme() 함수로 해시테이블에 추가
 	insert_vme(&thread_current()->vm, vme);
+
+	if(!install_page(vme->vaddr, kaddr, vme->writable)){
+		free_page(page);
+		return success;
+	}
 	
-	return true;
+	success = true;
+
+	if(success)
+		*esp = PHYS_BASE;
+
+	return success;
 }
 
 /* Adds a mapping from user virtual address UPAGE to kernel
@@ -719,31 +741,39 @@ bool handle_mm_fault(struct vm_entry *vme){
 			return false;
 	}
 
-	void* kaddr = palloc_get_page(PAL_USER);
-
+	struct page *page = alloc_page(PAL_USER);
+	page->vme = vme;
+	void *kaddr = page->kaddr;
+	
 		/* switch문으로vm_entry의타입별처리(VM_BIN외의나머지타입은mmf와swapping에서다룸*/
 	switch(vme->type){
 		case VM_BIN:
 			if(!load_file(kaddr, vme)){
-				palloc_free_page(kaddr);
+				free_page(page);
 				return false;
 			}
 			break;
 	
 		case VM_FILE:
+			if(!load_file(kaddr, vme)){
+				free_page(page);
+				return false;
+			}
 			break;
 	
 		case VM_ANON:
+			swap_in(vme->swap_slot, kaddr);
 			break;
 	}
 
 		/* VM_BIN일경우load_file()함수를이용해서물리메모리에로드*/
 		/* install_page를이용해서물리페이지와가상페이지맵핑*/
 	if(install_page(vme->vaddr, kaddr, vme->writable) == false){
-			palloc_free_page(kaddr);
+			free_page(kaddr);
 			return false;
 	}
 		/* 로드성공여부반환*/
 	vme->is_loaded = true;
 	return true;
 }
+

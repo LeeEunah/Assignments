@@ -104,6 +104,9 @@ struct thread
 //프로그램 파일을 가리키는 파일 구조체 포인터 추가
 		struct file *executing_file;
 
+// mmap_file 리스트의 헤드
+		struct list mmap_list;
+
     /* Owned by thread.c. */
     unsigned magic;                     /* Detects stack overflow. */
 

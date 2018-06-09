@@ -166,7 +166,9 @@ page_fault (struct intr_frame *f)
 				if(write && (vme->writable == 0)){
 					exit(-1);
 				}
+				vme->pinned = true;
 				handle_mm_fault(vme);
+				vme->pinned = false;
 			} else{
 				exit(-1);
 			}

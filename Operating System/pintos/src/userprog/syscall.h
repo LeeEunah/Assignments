@@ -4,4 +4,5 @@
 void syscall_init (void);
 void exit(int);
 struct lock file_lock;
+void munmap(int);
 #endif /* userprog/syscall.h */

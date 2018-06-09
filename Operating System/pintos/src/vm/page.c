@@ -11,6 +11,10 @@
 #include "userprog/syscall.h"
 
 #include "vm/page.h"
+#include "vm/frame.h"
+
+extern struct list lru_list;
+extern struct lock lru_list_lock;
 
 static unsigned vm_hash_func (const struct hash_elem *e, void *aux UNUSED){
 // hash_entry()로 element에 대한 vm_entry 구조체 검색
@@ -100,4 +104,61 @@ bool load_file (void *kaddr, struct vm_entry *vme){
 		memset(kaddr, 0, PGSIZE);
 	}
 		return true;
+}
+
+//페이지 할당
+struct page* alloc_page(enum palloc_flags flags){
+	
+	void *kaddr = palloc_get_page(flags);	//페이지 할당
+
+	while(kaddr == NULL){
+/*
+메모리가 부족하기 때문에 swap out을 해준다 
+*/
+		lock_acquire(&lru_list_lock);
+//		printf("//////memory lack\n");
+		kaddr = try_to_free_pages(flags);
+//		printf("///////%p\n", kaddr);
+		lock_release(&lru_list_lock);
+	}
+	
+	//if(kaddr == NULL)
+	//	kaddr = palloc_get_page(flags);
+
+	struct page *page = (struct page*)malloc(sizeof(struct page));	//페이지 할당
+	
+	if(page == NULL){
+		return NULL;
+	}
+//초기화
+	page->kaddr = kaddr;
+	page->thread = thread_current();
+	page->vme = NULL;
+	add_page_to_lru_list(page);	
+	
+	return page;
+}
+//물리 주소 kaddr에 해당하는 page해제
+void free_page(void *kaddr){
+	struct list_elem *elem;
+
+	for(elem = list_begin(&lru_list);
+		  elem != list_end(&lru_list);
+			){
+		struct list_elem *next_elem = list_next(elem);
+		struct page *page = list_entry(elem,struct page,lru);
+		if(page->kaddr == kaddr){
+			__free_page(page);
+			break;
+		}
+		elem = next_elem;
+	}
+}
+//LRU list 내 page 해제
+void __free_page(struct page* page){
+	lock_acquire(&lru_list_lock);
+	del_page_from_lru_list(page);
+	lock_release(&lru_list_lock);
+	palloc_free_page(page->kaddr);
+	free(page);
 }
