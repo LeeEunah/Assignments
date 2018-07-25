@@ -1,17 +1,17 @@
 # Assignments
 class assignments and studies
 
-**Data Science** <br />
+**Data Science** (Mar. 2018 - Jun. 2018)<br />
 The assignment reports is included in each directory.  
-The codes were implemented by Python3.
+The codes were implemented using Python3.
 1. Association rule based on apriori algorithm
 2. Decision Tree
 3. DBscan clutsering
 4. Recommender
 
-**Operating System (PintOS)** <br />
+**Operating System (PintOS)**         (Mar. 2018 - Jun. 2018)<br />
 I worked this assignment with a partner. (2 people in a team)  
-The codes were implemented by C.
+The codes were implemented using C.
 - User Program
  1. Command Line Pasing
  2. System Call
@@ -34,3 +34,6 @@ The codes were implemented by C.
  4. Stack (not implemented)
  
 - File System
+1. Buffer Cache
+2. Extensible File
+3. Subdirectory
