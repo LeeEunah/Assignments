@@ -1,3 +1,4 @@
+#include "userprog/process.h"
 #include <debug.h>
 #include <inttypes.h>
 #include <round.h>
@@ -8,7 +9,6 @@
 #include "userprog/pagedir.h"
 #include "userprog/tss.h"
 #include "userprog/syscall.h"
-#include "userprog/process.h"
 #include "filesys/directory.h"
 #include "filesys/file.h"
 #include "filesys/filesys.h"
@@ -22,6 +22,7 @@
 // malloc 사용을 위해
 #include "threads/malloc.h"
 #include "vm/page.h"
+#include "vm/frame.h"
 
 #define MAX_FILE 128
 
@@ -220,7 +221,10 @@ process_exit (void)
   struct thread *cur = thread_current ();
   uint32_t *pd;
 	int i;
-	
+
+// 스레드의 현재작업 디렉토리의 디렉토리 정보를 메모리에서 해지
+	dir_close(cur->cur_dir);
+
 //프로세스가 종료될 때, 열린 모든 파일을 닫아준다
 //파일 디스크립터 최소값인 2부터 MAX_FILE까지 닫는다
 	for(i=2; i < cur->next_fd; i++){
@@ -359,8 +363,8 @@ load (const char *file_name, void (**eip) (void), void **esp)
 
   /* Allocate and activate page directory. */
   t->pagedir = pagedir_create ();
-  if (t->pagedir == NULL) 
-    goto done;
+	if (t->pagedir == NULL) 
+		goto done;
   process_activate ();
 
 //lock획득
@@ -643,7 +647,7 @@ install_page (void *upage, void *kpage, bool writable)
 
   /* Verify that there's not already a page at that virtual
      address, then map our page there. */
-  bool success = (pagedir_get_page (t->pagedir, upage) == NULL
+	bool success = (pagedir_get_page (t->pagedir, upage) == NULL
           && pagedir_set_page (t->pagedir, upage, kpage, writable));
 	return success;
 }

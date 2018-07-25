@@ -1,6 +1,7 @@
 #include "filesys/file.h"
 #include <debug.h>
 #include "filesys/inode.h"
+#include "filesys/buffer_cache.h"
 #include "threads/malloc.h"
 #include <stdio.h>
 
@@ -18,7 +19,9 @@ struct file
 struct file *
 file_open (struct inode *inode) 
 {
+// file 자료구조 메모리 할당
   struct file *file = calloc (1, sizeof *file);
+// file 자료구조 초기화
   if (inode != NULL && file != NULL)
     {
       file->inode = inode;

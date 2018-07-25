@@ -9,6 +9,8 @@
 #include "threads/palloc.h"
 #include "vm/page.h"
 #include "vm/swap.h"
+#include "filesys/file.h"
+#include "threads/malloc.h"
 
 struct list lru_list; 
 struct lock lru_list_lock;
@@ -82,7 +84,7 @@ void *try_to_free_pages(enum palloc_flags flags){
 				if(pagedir_is_dirty(t->pagedir,page->vme->vaddr ||
 					 page->vme->type == VM_ANON)){
 //				if(page->vme->type == VM_FILE){
-//					lock_acquire(&file_lock);
+					lock_acquire(&file_lock);
 					file_write_at(page->vme->vaddr,
 											page->kaddr,
 											page->vme->read_bytes,
@@ -99,12 +101,14 @@ void *try_to_free_pages(enum palloc_flags flags){
 //				printf("/////%d\n", page->vme->swap_slot);
 			
 				}
+//			lock_acquire(&lru_list_lock);
 			page->vme->is_loaded=false;
 			del_page_from_lru_list(page);
 			pagedir_clear_page(t->pagedir,page->vme->vaddr);
 			palloc_free_page(page->kaddr);
 			free(page);
 			lru_clock = next;
+//			lock_release(&lru_list_lock);
 
 			return palloc_get_page(flags);
 		}

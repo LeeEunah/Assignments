@@ -23,7 +23,7 @@ void swap_init(){
 
 //  printf("(%s) swap_size: %u, SECTORS_PER_PAGE: %d, bit_cnt: %u\n", __func__, swap_size, SECTORS_PER_PAGE, (size_t)swap_size/SECTORS_PER_PAGE);
 
-	//swap_bitmap = bitmap_create(block_size(swap_block)/SECTORS_PER_PAGE);
+//	swap_bitmap = bitmap_create(block_size(swap_block)/SECTORS_PER_PAGE);
 	swap_bitmap = bitmap_create(1024);
 	
 	if(swap_bitmap == NULL)
@@ -43,14 +43,14 @@ void swap_in(size_t used_index, void* kaddr){
 	lock_acquire(&swap_lock);
 	if(bitmap_test(swap_bitmap, used_index) == 0)
 		printf("bitma_test error\n");	
-	else{
-//	bitmap_flip(swap_bitmap, used_index);
-		for(i=0;i<SECTORS_PER_PAGE; i++)
+//	else{
+	bitmap_flip(swap_bitmap, used_index);
+	for(i=0;i<SECTORS_PER_PAGE; i++)
 			block_read(swap_block,
 							used_index*SECTORS_PER_PAGE + i,
 							(uint8_t*)kaddr + i * BLOCK_SECTOR_SIZE);
-		bitmap_flip(swap_bitmap,used_index);
-	}
+//		bitmap_flip(swap_bitmap,used_index);
+//	}
 	lock_release(&swap_lock);
 }
 /*kaddr주소가 가르키는 페이지를 스왑파티션에 기록
@@ -69,14 +69,14 @@ size_t swap_out(void* kaddr){
 
 	if(index == BITMAP_ERROR)
 			printf("///////swap_out error\n");
-	else{
+//	else{
 		for(i=0;i<SECTORS_PER_PAGE;i++) {
   //  printf("[JATA DBG] (%s) index: %d, sector_idx: %d\n", __func__, index, index*SECTORS_PER_PAGE+i);
 			block_write(swap_block,
 								index*SECTORS_PER_PAGE+i,
 								(uint8_t*)kaddr + i *BLOCK_SECTOR_SIZE);
   	}
-	}
+//	}
 	
 	lock_release(&swap_lock);
 	return index;

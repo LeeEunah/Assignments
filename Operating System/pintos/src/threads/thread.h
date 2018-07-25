@@ -142,6 +142,8 @@ struct thread
 		struct list donations;
 		struct list_elem donation_elem;
 
+// thread가 작업중인 디렉토리의 정보를 저장하도록 변수 추가
+		struct dir *cur_dir;
 	};
 
 //실행 중인 스레드를 슬립을 만듬

@@ -4,6 +4,7 @@
 #include <hash.h>
 #include <list.h>
 #include <threads/synch.h>
+#include "threads/palloc.h"
 
 #define VM_BIN 0
 #define VM_FILE 1
@@ -49,7 +50,11 @@ struct vm_entry* find_vme (void*);
 bool insert_vme (struct hash*, struct vm_entry*);
 bool delete_vme (struct hash*, struct vm_entry*);
 void vm_destroy (struct hash*);
-
+struct vm_entry *find_vme(void*);
 bool load_file(void*, struct vm_entry*);
+
+struct page* alloc_page(enum palloc_flags);
+void free_page(void *);
+void __free_page(struct page*);
 
 #endif

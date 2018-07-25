@@ -36,10 +36,13 @@
 #include "devices/ide.h"
 #include "filesys/filesys.h"
 #include "filesys/fsutil.h"
+#include "filesys/directory.h"
 #endif
-
+#ifdef VM
+#include "vm/page.h"
 #include "vm/frame.h"
 #include "vm/swap.h"
+#endif
 /* Page directory with kernel mappings only. */
 uint32_t *init_page_dir;
 

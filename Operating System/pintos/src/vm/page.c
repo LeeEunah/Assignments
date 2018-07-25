@@ -144,14 +144,14 @@ void free_page(void *kaddr){
 
 	for(elem = list_begin(&lru_list);
 		  elem != list_end(&lru_list);
-			){
-		struct list_elem *next_elem = list_next(elem);
+			elem = list_next(elem)){
+//		struct list_elem *next_elem = list_next(elem);
 		struct page *page = list_entry(elem,struct page,lru);
 		if(page->kaddr == kaddr){
 			__free_page(page);
 			break;
 		}
-		elem = next_elem;
+//		elem = next_elem;
 	}
 }
 //LRU list 내 page 해제
